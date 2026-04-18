@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "description": "Haptic feedback on clicks and hovers via Logitech MX Master 4",
   "permissions": ["storage"],
+  "host_permissions": ["https://local.jmw.nz/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

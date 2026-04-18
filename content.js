@@ -1,5 +1,3 @@
-const API = 'https://local.jmw.nz:41443/haptic';
-
 const HOVER_SELECTORS = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="menuitem"], [role="tab"], label';
 const HOVER_THROTTLE_MS = 120;
 
@@ -8,7 +6,7 @@ let lastHover = 0;
 
 function trigger(waveform) {
   if (!enabled) return;
-  fetch(`${API}/${waveform}`, { method: 'POST', body: '' }).catch(() => {});
+  chrome.runtime.sendMessage({ type: 'haptic', waveform });
 }
 
 document.addEventListener('mousedown', () => {
