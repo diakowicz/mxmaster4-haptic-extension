@@ -10,18 +10,14 @@ import threading
 import requests
 
 try:
-    from Quartz import (
-        CGEventTapCreate, CGEventTapEnable,
-        CFMachPortCreateRunLoopSource, CFRunLoopAddSource,
-        CFRunLoopGetCurrent, CFRunLoopRun,
-        kCGEventTapOptionDefault, kCGSessionEventTap, kCGHeadInsertEventTap,
-        kCGEventLeftMouseDown, kCGEventRightMouseDown, kCGEventScrollWheel,
-        CGEventGetIntegerValueField, kCGScrollWheelEventDeltaAxis1,
-    )
-    from CoreFoundation import kCFRunLoopCommonModes
     import objc
-    from Foundation import NSDistributedNotificationCenter, NSObject
-    from AppKit import NSWorkspace
+    from Foundation import NSDistributedNotificationCenter, NSObject, NSLog
+    from AppKit import (
+        NSApplication, NSApp, NSEvent,
+        NSLeftMouseDownMask, NSRightMouseDownMask, NSScrollWheelMask,
+        NSWorkspace,
+    )
+    from Quartz import CGEventGetIntegerValueField, kCGScrollWheelEventDeltaAxis1
 except ImportError:
     print("Install dependencies: pip install pyobjc-framework-Quartz requests --break-system-packages")
     sys.exit(1)
@@ -44,48 +40,34 @@ def fire(waveform):
     threading.Thread(target=trigger, args=(waveform,), daemon=True).start()
 
 
-# ── Mouse event tap ───────────────────────────────────────────────────────────
+# ── NSEvent global monitors ───────────────────────────────────────────────────
 
-def mouse_callback(proxy, event_type, event, refcon):
+def start_monitors():
     global last_scroll_edge
 
-    if event_type == kCGEventLeftMouseDown:
-        fire("subtle_collision")
+    def on_mouse(event):
+        etype = event.type()
+        if etype == 1:   # NSLeftMouseDown
+            fire("subtle_collision")
+        elif etype == 3: # NSRightMouseDown
+            fire("knock")
 
-    elif event_type == kCGEventRightMouseDown:
-        fire("knock")
-
-    elif event_type == kCGEventScrollWheel:
-        delta = CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis1)
+    def on_scroll(event):
+        global last_scroll_edge
+        dy = event.scrollingDeltaY()
         now = time.time()
-        if delta == 0 and now - last_scroll_edge > SCROLL_COOLDOWN:
+        if dy == 0 and now - last_scroll_edge > SCROLL_COOLDOWN:
             last_scroll_edge = now
             fire("sharp_collision")
 
-    return event
+    mask_click  = NSLeftMouseDownMask | NSRightMouseDownMask
+    mask_scroll = NSScrollWheelMask
+
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(mask_click,  on_mouse)
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(mask_scroll, on_scroll)
 
 
-def start_mouse_tap():
-    mask = (
-        (1 << kCGEventLeftMouseDown) |
-        (1 << kCGEventRightMouseDown) |
-        (1 << kCGEventScrollWheel)
-    )
-    tap = CGEventTapCreate(
-        kCGSessionEventTap, kCGHeadInsertEventTap,
-        kCGEventTapOptionDefault, mask, mouse_callback, None,
-    )
-    if not tap:
-        print("[ERROR] Cannot create event tap.")
-        print("        Grant Accessibility: System Settings → Privacy & Security → Accessibility")
-        sys.exit(1)
-
-    source = CFMachPortCreateRunLoopSource(None, tap, 0)
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), source, kCFRunLoopCommonModes)
-    CGEventTapEnable(tap, True)
-
-
-# ── Call / notification observer ──────────────────────────────────────────────
+# ── Call observer ─────────────────────────────────────────────────────────────
 
 class CallObserver(NSObject):
 
@@ -94,18 +76,17 @@ class CallObserver(NSObject):
 
     def onAppActivate_(self, notification):
         info = notification.userInfo() or {}
-        app = (info.get("NSWorkspaceApplicationKey") or {})
-        name = getattr(app, "localizedName", lambda: "")()
+        app  = info.get("NSWorkspaceApplicationKey")
+        name = app.localizedName() if app else ""
         if name == "FaceTime":
             fire("ringing")
 
 
 def start_observers():
     observer = CallObserver.alloc().init()
-    dnc  = NSDistributedNotificationCenter.defaultCenter()
+    dnc   = NSDistributedNotificationCenter.defaultCenter()
     ws_nc = NSWorkspace.sharedWorkspace().notificationCenter()
 
-    # iPhone Continuity / CallKit incoming call notifications
     for name in [
         "com.apple.CTCall.callstate",
         "com.apple.telephonyutilities.phoneCallState",
@@ -117,14 +98,12 @@ def start_observers():
             name, None,
         )
 
-    # FaceTime window coming to front → likely incoming call
     ws_nc.addObserver_selector_name_object_(
         observer,
         objc.selector(observer.onAppActivate_, signature=b"v@:@"),
         "NSWorkspaceDidActivateApplicationNotification", None,
     )
-
-    return observer  # keep reference alive
+    return observer
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -135,13 +114,20 @@ def main():
     print("  Right click     → knock")
     print("  Scroll edge     → sharp_collision")
     print("  Incoming call   → ringing  (iPhone Continuity / FaceTime)")
-    print("Press Ctrl+C to stop.\n")
+    print()
 
-    start_mouse_tap()
+    app = NSApplication.sharedApplication()
+    app.setActivationPolicy_(2)  # NSApplicationActivationPolicyProhibited — no Dock icon
+
+    start_monitors()
     _observer = start_observers()
 
+    from AppKit import NSRunLoop, NSDate
+    run_loop = NSRunLoop.currentRunLoop()
+    print("Running. Press Ctrl+C to stop.")
     try:
-        CFRunLoopRun()
+        while True:
+            run_loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.5))
     except KeyboardInterrupt:
         print("\nStopped.")
 
