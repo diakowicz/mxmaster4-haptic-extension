@@ -80,27 +80,10 @@ def start_monitors():
         if t == 1:   fire("subtle_collision")
         elif t == 3: fire("knock")
 
-    def on_mouse_move(event):
-        now = time.time()
-        if now - last_checked[0] < WINDOW_HOVER_THROTTLE:
-            return
-        last_checked[0] = now
-
-        # NSEvent uses bottom-left origin; CGWindowList uses top-left
-        pos = NSEvent.mouseLocation()
-        screen_h = NSScreen.mainScreen().frame().size.height
-        cx, cy = pos.x, screen_h - pos.y
-
-        wid = get_window_id_under_cursor(cx, cy)
-        if wid and wid != last_window[0]:
-            last_window[0] = wid
-            if not in_browser():
-                fire("damp_collision")
-
     NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
         NSLeftMouseDownMask | NSRightMouseDownMask, on_mouse_click)
-    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
-        NSMouseMovedMask, on_mouse_move)
+
+    return last_window  # returned so main loop can poll
 
 
 def main():
@@ -108,16 +91,58 @@ def main():
     print("  Left click      → subtle_collision  (skipped in browser)", flush=True)
     print("  Right click     → knock             (skipped in browser)", flush=True)
     print("  Window hover    → damp_collision    (skipped in browser)", flush=True)
+    print("  Long press      → jingle            (skipped in browser)", flush=True)
     print("  Requires: Accessibility + Screen Recording in Privacy settings", flush=True)
     print("Running.\n", flush=True)
 
     NSApplication.sharedApplication().setActivationPolicy_(2)
-    start_monitors()
+    last_window = start_monitors()
+
+    screen_h   = NSScreen.mainScreen().frame().size.height
+    last_check = [0.0]
+
+    # Long press detection
+    press_start    = [0.0]
+    long_press_fired = [False]
+    LONG_PRESS_SEC = 0.5
+
+    def on_down(event):
+        if event.type() == 1:
+            press_start[0] = time.time()
+            long_press_fired[0] = False
+
+    def on_up(event):
+        if event.type() == 2 and not long_press_fired[0]:
+            pass  # normal click already handled
+
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(1 << 1, on_down)   # NSLeftMouseDown
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(1 << 2, on_up)     # NSLeftMouseUp
 
     from AppKit import NSRunLoop, NSDate
     try:
         while True:
-            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.5))
+            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.1))
+
+            # Long press check
+            if press_start[0] and not long_press_fired[0]:
+                if time.time() - press_start[0] >= LONG_PRESS_SEC:
+                    long_press_fired[0] = True
+                    press_start[0] = 0.0
+                    if not in_browser():
+                        fire("jingle")
+
+            # Window hover poll
+            now = time.time()
+            if now - last_check[0] >= WINDOW_HOVER_THROTTLE:
+                last_check[0] = now
+                pos = NSEvent.mouseLocation()
+                cx, cy = pos.x, screen_h - pos.y
+                wid = get_window_id_under_cursor(cx, cy)
+                if wid and wid != last_window[0]:
+                    last_window[0] = wid
+                    if not in_browser():
+                        fire("damp_collision")
+
     except KeyboardInterrupt:
         print("\nStopped.")
 
