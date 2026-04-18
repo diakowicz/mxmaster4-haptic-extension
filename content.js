@@ -1,6 +1,5 @@
 const HOVER_THROTTLE_MS = 120;
 const SCROLL_EDGE_PX = 40;
-const SCROLL_COOLDOWN_MS = 600;
 
 const SLIDER_STEP_PCT  = 5;    // fire haptic every 5% of slider range
 const ANIM_THROTTLE_MS = 200;  // min ms between animation haptics per element
@@ -20,7 +19,8 @@ const DEFAULTS = {
 
 let settings = JSON.parse(JSON.stringify(DEFAULTS));
 let lastHover = 0;
-let lastScrollEdge = 0;
+let scrollWasAtEdge = (window.scrollY <= SCROLL_EDGE_PX) ||
+  (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - SCROLL_EDGE_PX);
 
 let _port = null;
 
@@ -112,16 +112,14 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge (page scroll only)
+// Scroll to edge (page scroll only) — fires once on entering the edge zone
 window.addEventListener('scroll', () => {
   if (window.self !== window.top) return;
   if (!settings.scrollEdge.enabled) return;
-  const now = Date.now();
-  if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
   const scrollTop    = window.scrollY;
   const scrollHeight = document.documentElement.scrollHeight;
   const clientHeight = window.innerHeight;
-  if (scrollTop > SCROLL_EDGE_PX && scrollTop + clientHeight < scrollHeight - SCROLL_EDGE_PX) return;
-  lastScrollEdge = now;
-  trigger(settings.scrollEdge.waveform);
+  const atEdge = scrollTop <= SCROLL_EDGE_PX || scrollTop + clientHeight >= scrollHeight - SCROLL_EDGE_PX;
+  if (atEdge && !scrollWasAtEdge) trigger(settings.scrollEdge.waveform);
+  scrollWasAtEdge = atEdge;
 }, { passive: true });
