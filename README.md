@@ -68,6 +68,76 @@ trigger('subtle_collision');
 trigger('damp_collision');
 ```
 
+## macOS system-level daemon
+
+Runs in the background (no terminal needed) and adds haptics for **all apps**, not just the browser.
+
+### Events
+
+| Action | Waveform |
+|---|---|
+| Left click | `subtle_collision` |
+| Right click | `knock` |
+| Scroll to edge | `sharp_collision` |
+| Incoming call (iPhone Continuity / FaceTime) | `ringing` |
+
+### Installation
+
+**1. Install dependencies**
+```bash
+pip install pyobjc-framework-Quartz requests --break-system-packages
+```
+
+**2. Run install script**
+```bash
+bash os-haptics/install.sh
+```
+
+This registers a launchd service that starts automatically on every login.
+
+**3. Grant Accessibility permission**
+
+The daemon needs Accessibility to monitor global mouse events. macOS requires two separate entries:
+
+- **`python3.13`** (for running interactively from terminal)
+  - System Settings → Privacy & Security → Accessibility → `+`
+  - Press **Cmd+Shift+G** → paste `/opt/homebrew/bin`
+  - Drag `python3` onto the list (the `+` picker greys out symlinks — drag & drop works)
+
+- **`Python.app`** (for launchd background service)
+  - System Settings → Privacy & Security → Accessibility → `+`
+  - Press **Cmd+Shift+G** → paste:
+    `/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/Resources/`
+  - Select `Python.app` and click Open
+
+**4. Restart the daemon**
+```bash
+launchctl unload ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+launchctl load -w ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+```
+
+**5. Verify**
+```bash
+tail -f /tmp/mxmaster4-haptics.log
+```
+You should see `Running. Press Ctrl+C to stop.` with no errors.
+
+### Daemon management
+
+```bash
+# Stop
+launchctl unload ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+
+# Start
+launchctl load -w ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+
+# Remove completely
+launchctl unload ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+rm ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+```
+
+---
+
 ## Troubleshooting
 
 **No haptics / red dot in popup**
