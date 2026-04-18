@@ -32,7 +32,7 @@ EVENTS.forEach(ev => {
 });
 
 // Load settings
-chrome.storage.sync.get(DEFAULTS, (data) => {
+chrome.storage.local.get(DEFAULTS, (data) => {
   document.getElementById('masterToggle').checked = data.enabled;
   EVENTS.forEach(ev => {
     const enEl = document.getElementById(`en-${ev}`);
@@ -47,7 +47,7 @@ chrome.storage.sync.get(DEFAULTS, (data) => {
 
 // Master toggle
 document.getElementById('masterToggle').addEventListener('change', (e) => {
-  chrome.storage.sync.set({ enabled: e.target.checked });
+  chrome.storage.local.set({ enabled: e.target.checked });
 });
 
 // Per-event toggles and waveform selects
@@ -56,17 +56,17 @@ EVENTS.forEach(ev => {
   const wfEl = document.getElementById(`wf-${ev}`);
 
   enEl?.addEventListener('change', () => {
-    chrome.storage.sync.get(DEFAULTS, (data) => {
+    chrome.storage.local.get(DEFAULTS, (data) => {
       const updated = { ...data[ev], enabled: enEl.checked };
       if (wfEl) wfEl.disabled = !enEl.checked;
-      chrome.storage.sync.set({ [ev]: updated });
+      chrome.storage.local.set({ [ev]: updated });
     });
   });
 
   wfEl?.addEventListener('change', () => {
-    chrome.storage.sync.get(DEFAULTS, (data) => {
+    chrome.storage.local.get(DEFAULTS, (data) => {
       const updated = { ...data[ev], waveform: wfEl.value };
-      chrome.storage.sync.set({ [ev]: updated });
+      chrome.storage.local.set({ [ev]: updated });
       fetch(`https://local.jmw.nz:41443/haptic/${wfEl.value}`, { method: 'POST', body: '' }).catch(() => {});
     });
   });

@@ -27,9 +27,9 @@ function trigger(waveform) {
   chrome.runtime.sendMessage({ type: 'haptic', waveform });
 }
 
-chrome.storage.sync.get(DEFAULTS, (data) => { settings = data; });
+chrome.storage.local.get(DEFAULTS, (data) => { settings = data; });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'sync') return;
+  if (area !== 'local') return;
   for (const key in changes) settings[key] = changes[key].newValue;
 });
 
@@ -110,7 +110,7 @@ document.addEventListener('scroll', (e) => {
   const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_EDGE_PX;
   if (!atTop && !atBottom) return;
   lastScrollEdge = now;
-  chrome.storage.sync.get(DEFAULTS, (s) => {
+  chrome.storage.local.get(DEFAULTS, (s) => {
     if (!s.enabled || !s.scrollEdge.enabled) return;
     trigger(s.scrollEdge.waveform);
   });
