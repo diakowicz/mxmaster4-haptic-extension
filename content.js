@@ -3,28 +3,12 @@ const API = 'https://local.jmw.nz:41443/haptic';
 const HOVER_SELECTORS = 'a, button, input, select, textarea, [role="button"], [role="link"], [role="menuitem"], [role="tab"], label';
 const HOVER_THROTTLE_MS = 120;
 
-let ws = null;
-let wsReady = false;
 let enabled = true;
 let lastHover = 0;
 
-function connectWS() {
-  ws = new WebSocket('wss://local.jmw.nz:41443/ws');
-  ws.onopen = () => { wsReady = true; };
-  ws.onclose = () => {
-    wsReady = false;
-    setTimeout(connectWS, 3000);
-  };
-  ws.onerror = () => { ws.close(); };
-}
-
 function trigger(waveform) {
   if (!enabled) return;
-  if (wsReady && ws.readyState === WebSocket.OPEN) {
-    ws.send(waveform);
-  } else {
-    fetch(`${API}/${waveform}`, { method: 'POST', body: '' }).catch(() => {});
-  }
+  fetch(`${API}/${waveform}`, { method: 'POST', body: '' }).catch(() => {});
 }
 
 document.addEventListener('mousedown', () => {
@@ -47,4 +31,3 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.enabled) enabled = changes.enabled.newValue;
 });
 
-connectWS();
