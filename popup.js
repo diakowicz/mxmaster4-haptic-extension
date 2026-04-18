@@ -57,17 +57,16 @@ EVENTS.forEach(ev => {
 
   enEl?.addEventListener('change', () => {
     chrome.storage.sync.get(DEFAULTS, (data) => {
-      data[ev].enabled = enEl.checked;
+      const updated = { ...data[ev], enabled: enEl.checked };
       if (wfEl) wfEl.disabled = !enEl.checked;
-      chrome.storage.sync.set({ [ev]: data[ev] });
+      chrome.storage.sync.set({ [ev]: updated });
     });
   });
 
   wfEl?.addEventListener('change', () => {
     chrome.storage.sync.get(DEFAULTS, (data) => {
-      data[ev].waveform = wfEl.value;
-      chrome.storage.sync.set({ [ev]: data[ev] });
-      // Preview haptic on change
+      const updated = { ...data[ev], waveform: wfEl.value };
+      chrome.storage.sync.set({ [ev]: updated });
       fetch(`https://local.jmw.nz:41443/haptic/${wfEl.value}`, { method: 'POST', body: '' }).catch(() => {});
     });
   });

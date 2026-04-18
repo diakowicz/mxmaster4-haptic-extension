@@ -28,7 +28,8 @@ function trigger(waveform) {
 }
 
 chrome.storage.sync.get(DEFAULTS, (data) => { settings = data; });
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') return;
   for (const key in changes) settings[key] = changes[key].newValue;
 });
 
@@ -98,9 +99,10 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge
+// Scroll to edge — skip iframes (scrollY/scrollHeight unreliable there)
 let scrollTimer;
 window.addEventListener('scroll', () => {
+  if (window.self !== window.top) return;
   if (!settings.scrollEdge.enabled) return;
   clearTimeout(scrollTimer);
   scrollTimer = setTimeout(() => {
