@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "MX Master 4 Haptics",
+  "version": "1.0.0",
+  "description": "Haptic feedback on clicks and hovers via Logitech MX Master 4",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "MX Master 4 Haptics"
+  }
+}
