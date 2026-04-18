@@ -112,18 +112,16 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge
-document.addEventListener('scroll', (e) => {
+// Scroll to edge (page scroll only)
+window.addEventListener('scroll', () => {
   if (window.self !== window.top) return;
   if (!settings.scrollEdge.enabled) return;
   const now = Date.now();
   if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
-  const t = e.target;
-  const isPage = (t === document || t === document.documentElement);
-  const scrollTop    = isPage ? window.scrollY                              : t.scrollTop;
-  const scrollHeight = isPage ? document.documentElement.scrollHeight       : t.scrollHeight;
-  const clientHeight = isPage ? window.innerHeight                          : t.clientHeight;
+  const scrollTop    = window.scrollY;
+  const scrollHeight = document.documentElement.scrollHeight;
+  const clientHeight = window.innerHeight;
   if (scrollTop > SCROLL_EDGE_PX && scrollTop + clientHeight < scrollHeight - SCROLL_EDGE_PX) return;
   lastScrollEdge = now;
   trigger(settings.scrollEdge.waveform);
-}, { passive: true, capture: true });
+}, { passive: true });

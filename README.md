@@ -1,6 +1,6 @@
 # MX Master 4 Haptic Extension
 
-Browser extension that adds haptic feedback to clicks and hovers on every website, using the Logitech MX Master 4 haptic motor.
+Browser extension that adds configurable haptic feedback to web interactions, using the Logitech MX Master 4 haptic motor. Every event type has its own waveform, toggled and customized via a popup UI.
 
 ## Requirements
 
@@ -10,12 +10,23 @@ Browser extension that adds haptic feedback to clicks and hovers on every websit
 
 ## How it works
 
-The extension connects to a local server (`https://local.jmw.nz:41443`) provided by HapticWebPlugin and triggers waveforms on:
+The extension injects a content script into every page. When a tracked event fires, it sends a waveform name to the background service worker via a persistent port connection. The service worker calls the local HapticWebPlugin API (`https://local.jmw.nz:41443/haptic/<waveform>`) which drives the haptic motor.
 
-- **Click** (`mousedown`) → `subtle_collision`
-- **Hover** over buttons, links, inputs → `damp_collision` (throttled to 120ms)
+Settings are stored in `chrome.storage.local` and applied instantly — no page reload needed after changing them in the popup.
 
-It uses WebSocket for low latency with automatic fallback to HTTP fetch.
+## Tracked events
+
+| Event | Default waveform | Notes |
+|---|---|---|
+| Hover — link | `damp_collision` | Throttled to 1 per 120 ms |
+| Hover — button / menu item / tab | `subtle_collision` | Throttled to 1 per 120 ms |
+| Hover — input / select / textarea | `subtle_collision` | Off by default |
+| Focus on form field | `subtle_collision` | |
+| Form submit | `completed` | |
+| Form validation error | `angry_alert` | |
+| Slider drag | `damp_state_change` | Fires every 5% of range |
+| CSS animation / transition end | `subtle_collision` | Throttled to 1 per element per 200 ms |
+| Scroll to page edge | `sharp_collision` | Top or bottom 40 px, cooldown 600 ms |
 
 ## Installation
 
@@ -42,35 +53,32 @@ It uses WebSocket for low latency with automatic fallback to HTTP fetch.
 3. Click **Load Temporary Add-on**
 4. Select the `manifest.json` file inside the folder
 
-> Note: Firefox temporary add-ons are removed on browser restart. For permanent installation, the extension would need to be signed by Mozilla.
+> Note: Firefox temporary add-ons are removed on browser restart. For permanent installation the extension would need to be signed by Mozilla.
 
 ### Step 3 — Test
 
-Click the extension icon in your toolbar — it should show a green dot and `Connected`. Browse any website and feel haptics on clicks and hovers.
+Click the extension icon — it should show a green dot and `Connected`. Browse any website and feel haptics on hover and click.
 
-## Waveforms
+## Configuring waveforms
 
-All 15 available waveforms from the MX Master 4:
+Click the extension icon to open the popup. Each event has an independent toggle and a waveform dropdown. Changes take effect immediately on all open tabs.
+
+## Available waveforms
+
+All 15 waveforms exposed by the MX Master 4:
 
 | Category | Waveforms |
 |---|---|
-| Precision | `sharp_collision`, `damp_collision`, `subtle_collision`, `damp_state_change` |
-| Progress | `sharp_state_change`, `completed`, `mad`, `firework`, `happy_alert`, `wave`, `angry_alert`, `square` |
-| Events | `knock`, `ringing`, `jingle` |
+| Collision | `sharp_collision`, `damp_collision`, `subtle_collision` |
+| State change | `damp_state_change`, `sharp_state_change` |
+| Alerts | `completed`, `happy_alert`, `angry_alert`, `mad` |
+| Rhythmic | `firework`, `wave`, `square`, `knock`, `ringing`, `jingle` |
 
-To change the waveform for clicks or hovers, edit `content.js`:
-
-```js
-// click
-trigger('subtle_collision');
-
-// hover
-trigger('damp_collision');
-```
+---
 
 ## macOS system-level daemon
 
-Runs in the background (no terminal needed) and adds haptics for **all apps**, not just the browser.
+Runs in the background and adds haptics for **all apps**, not just the browser. The daemon skips haptics when a browser is in the foreground (the extension handles those).
 
 ### Events
 
@@ -78,8 +86,6 @@ Runs in the background (no terminal needed) and adds haptics for **all apps**, n
 |---|---|
 | Left click | `subtle_collision` |
 | Right click | `knock` |
-| Scroll to edge | `sharp_collision` |
-| Incoming call (iPhone Continuity / FaceTime) | `ringing` |
 
 ### Installation
 
@@ -120,7 +126,7 @@ launchctl load -w ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
 ```bash
 tail -f /tmp/mxmaster4-haptics.log
 ```
-You should see `Running. Press Ctrl+C to stop.` with no errors.
+You should see `Running.` with no errors.
 
 ### Daemon management
 
@@ -143,7 +149,19 @@ rm ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
 **No haptics / red dot in popup**
 - Make sure Logi Options+ is running
 - Check HapticWebPlugin is active (green in Logi Options+)
-- Run in terminal: `curl -X POST -d '' https://local.jmw.nz:41443/haptic/sharp_collision` — if you feel it, the plugin works fine
+- Test the plugin directly:
+  ```bash
+  curl -X POST -d '' https://local.jmw.nz:41443/haptic/sharp_collision
+  ```
+  If you feel it, the plugin works — the issue is in the extension.
 
-**Haptics fire too often on hover**
+**Waveform changes in popup don't take effect**
+- Close and reopen the popup after changing a setting
+- If still not working, refresh the tab (F5)
+
+**Scroll haptic fires too often**
+- Increase `SCROLL_EDGE_PX` in `content.js` (default: `40`) to require being closer to the edge before firing
+- Increase `SCROLL_COOLDOWN_MS` (default: `600`) to add more time between triggers
+
+**Hover haptic fires too often**
 - Increase `HOVER_THROTTLE_MS` in `content.js` (default: `120`)
