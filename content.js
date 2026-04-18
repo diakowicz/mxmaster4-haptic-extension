@@ -112,19 +112,18 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge — no debounce (smooth-scroll fires continuously, debounce never fires)
+// Scroll to edge
 document.addEventListener('scroll', (e) => {
   if (window.self !== window.top) return;
+  if (!settings.scrollEdge.enabled) return;
   const now = Date.now();
   if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
-  const el = (e.target === document || e.target === document.documentElement)
-    ? document.documentElement : e.target;
-  const atTop = el.scrollTop <= SCROLL_EDGE_PX;
-  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_EDGE_PX;
-  if (!atTop && !atBottom) return;
+  const t = e.target;
+  const isPage = (t === document || t === document.documentElement);
+  const scrollTop    = isPage ? window.scrollY                              : t.scrollTop;
+  const scrollHeight = isPage ? document.documentElement.scrollHeight       : t.scrollHeight;
+  const clientHeight = isPage ? window.innerHeight                          : t.clientHeight;
+  if (scrollTop > SCROLL_EDGE_PX && scrollTop + clientHeight < scrollHeight - SCROLL_EDGE_PX) return;
   lastScrollEdge = now;
-  chrome.storage.local.get(DEFAULTS, (s) => {
-    if (!s.enabled || !s.scrollEdge.enabled) return;
-    trigger(s.scrollEdge.waveform);
-  });
+  trigger(settings.scrollEdge.waveform);
 }, { passive: true, capture: true });
