@@ -99,20 +99,26 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge — skip iframes (scrollY/scrollHeight unreliable there)
+// Scroll to edge — capture on document catches custom scroll containers (SPAs etc.)
 let scrollTimer;
-window.addEventListener('scroll', () => {
+document.addEventListener('scroll', (e) => {
   if (window.self !== window.top) return;
-  if (!settings.scrollEdge.enabled) return;
   clearTimeout(scrollTimer);
   scrollTimer = setTimeout(() => {
     const now = Date.now();
     if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
-    const atTop = window.scrollY <= SCROLL_EDGE_PX;
-    const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - SCROLL_EDGE_PX;
-    if (atTop || atBottom) {
+    const el = (e.target === document || e.target === document.documentElement)
+      ? document.documentElement
+      : e.target;
+    const atTop = el.scrollTop <= SCROLL_EDGE_PX;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_EDGE_PX;
+    if (!atTop && !atBottom) return;
+    // Read fresh from storage so popup changes take effect immediately
+    chrome.storage.sync.get(DEFAULTS, (s) => {
+      if (!s.enabled || !s.scrollEdge.enabled) return;
+      if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
       lastScrollEdge = now;
-      trigger(settings.scrollEdge.waveform);
-    }
+      trigger(s.scrollEdge.waveform);
+    });
   }, 60);
-}, { passive: true });
+}, { passive: true, capture: true });
