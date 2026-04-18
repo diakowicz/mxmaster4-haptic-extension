@@ -33,7 +33,7 @@ BROWSER_BUNDLE_IDS = {
     "com.vivaldi.Vivaldi",
 }
 
-WINDOW_HOVER_THROTTLE = 0.1   # seconds between window-enter checks
+WINDOW_HOVER_THROTTLE = 0.033  # ~30 Hz — CGWindowList is expensive, don't go faster
 
 
 def trigger(waveform):
@@ -120,7 +120,7 @@ def main():
     from AppKit import NSRunLoop, NSDate
     try:
         while True:
-            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.1))
+            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.016))
 
             # Long press check
             if press_start[0] and not long_press_fired[0]:
