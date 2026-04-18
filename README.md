@@ -14,17 +14,21 @@ The HapticWeb plugin exposes a local HTTPS server (`https://local.jmw.nz:41443`)
 
 ## Part 1 — Browser Extension
 
-Adds haptics to every website: clicks, right-clicks, hovering interactive elements, slider changes, and animation completions.
+Adds configurable haptics to every website. Each event type has its own waveform, toggled and customized via a popup UI.
 
 ### Events
 
-| Action | Waveform |
-|---|---|
-| Left click | `subtle_collision` |
-| Right click | `knock` |
-| Hover (buttons, links, inputs) | `damp_collision` |
-| Slider moved every 5% | `sharp_state_change` |
-| CSS animation end | `damp_state_change` |
+| Event | Default waveform | Notes |
+|---|---|---|
+| Hover — link | `damp_collision` | Throttled to 1 per 120 ms |
+| Hover — button / menu item / tab | `subtle_collision` | Throttled to 1 per 120 ms |
+| Hover — input / select / textarea | `subtle_collision` | Off by default |
+| Focus on form field | `subtle_collision` | |
+| Form submit | `completed` | |
+| Form validation error | `angry_alert` | |
+| Slider drag | `damp_state_change` | Fires every 5% of range |
+| CSS animation / transition end | `subtle_collision` | Throttled to 1 per element per 200 ms |
+| Scroll to page edge | `sharp_collision` | Top or bottom 40 px, cooldown 600 ms |
 
 ### Installation
 
@@ -43,7 +47,11 @@ Adds haptics to every website: clicks, right-clicks, hovering interactive elemen
 
 ### Test
 
-Click the extension icon — it should show a green dot and `Connected`. Browse any site and feel haptics on clicks and hovers.
+Click the extension icon — it should show a green dot and `Connected`. Browse any site and feel haptics on hover and interactions.
+
+### Configuring waveforms
+
+Click the extension icon to open the popup. Each event has an independent toggle and a waveform dropdown. Changes take effect immediately on all open tabs.
 
 ---
 
@@ -127,9 +135,10 @@ All 15 available waveforms on the MX Master 4:
 
 | Category | Waveforms |
 |---|---|
-| Precision | `sharp_collision`, `damp_collision`, `subtle_collision`, `damp_state_change` |
-| Progress | `sharp_state_change`, `completed`, `mad`, `firework`, `happy_alert`, `wave`, `angry_alert`, `square` |
-| Events | `knock`, `ringing`, `jingle` |
+| Collision | `sharp_collision`, `damp_collision`, `subtle_collision` |
+| State change | `damp_state_change`, `sharp_state_change` |
+| Alerts | `completed`, `happy_alert`, `angry_alert`, `mad` |
+| Rhythmic | `firework`, `wave`, `square`, `knock`, `ringing`, `jingle` |
 
 ---
 
@@ -139,6 +148,14 @@ All 15 available waveforms on the MX Master 4:
 - Make sure Logi Options+ is running
 - Check HapticWeb plugin is active (green dot in Logi Options+)
 - Test directly: `curl -X POST -d '' https://local.jmw.nz:41443/haptic/sharp_collision`
+
+**Waveform changes in popup don't take effect**
+- Close and reopen the popup after changing a setting
+- If still not working, refresh the tab (F5)
+
+**Scroll haptic fires too often**
+- Increase `SCROLL_EDGE_PX` in `content.js` (default: `40`) to require being closer to the edge
+- Increase `SCROLL_COOLDOWN_MS` (default: `600`) to add more time between triggers
 
 **Daemon not responding**
 - Check logs: `tail -f /tmp/mxmaster4-haptics.log`

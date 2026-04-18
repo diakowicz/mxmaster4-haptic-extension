@@ -1,5 +1,5 @@
 const HOVER_THROTTLE_MS = 120;
-const SCROLL_EDGE_PX = 8;
+const SCROLL_EDGE_PX = 40;
 const SCROLL_COOLDOWN_MS = 600;
 
 const SLIDER_STEP_PCT  = 5;    // fire haptic every 5% of slider range
@@ -22,13 +22,27 @@ let settings = JSON.parse(JSON.stringify(DEFAULTS));
 let lastHover = 0;
 let lastScrollEdge = 0;
 
-function trigger(waveform) {
-  if (!settings.enabled) return;
-  chrome.runtime.sendMessage({ type: 'haptic', waveform });
+let _port = null;
+
+function _getPort() {
+  if (!_port) {
+    try {
+      _port = chrome.runtime.connect({ name: 'haptics' });
+      _port.onDisconnect.addListener(() => { _port = null; });
+    } catch {}
+  }
+  return _port;
 }
 
-chrome.storage.sync.get(DEFAULTS, (data) => { settings = data; });
-chrome.storage.onChanged.addListener((changes) => {
+function trigger(waveform) {
+  if (!settings.enabled) return;
+  const p = _getPort();
+  if (p) try { p.postMessage({ waveform }); } catch { _port = null; }
+}
+
+chrome.storage.local.get(DEFAULTS, (data) => { settings = data; });
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
   for (const key in changes) settings[key] = changes[key].newValue;
 });
 
@@ -98,19 +112,16 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge
-let scrollTimer;
+// Scroll to edge (page scroll only)
 window.addEventListener('scroll', () => {
+  if (window.self !== window.top) return;
   if (!settings.scrollEdge.enabled) return;
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(() => {
-    const now = Date.now();
-    if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
-    const atTop = window.scrollY <= SCROLL_EDGE_PX;
-    const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - SCROLL_EDGE_PX;
-    if (atTop || atBottom) {
-      lastScrollEdge = now;
-      trigger(settings.scrollEdge.waveform);
-    }
-  }, 60);
+  const now = Date.now();
+  if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
+  const scrollTop    = window.scrollY;
+  const scrollHeight = document.documentElement.scrollHeight;
+  const clientHeight = window.innerHeight;
+  if (scrollTop > SCROLL_EDGE_PX && scrollTop + clientHeight < scrollHeight - SCROLL_EDGE_PX) return;
+  lastScrollEdge = now;
+  trigger(settings.scrollEdge.waveform);
 }, { passive: true });

@@ -6,16 +6,16 @@ async function drain() {
   if (busy) return;
   busy = true;
   while (queue.length) {
-    const waveform = queue.shift();
-    try { await fetch(`${API}/${waveform}`, { method: 'POST', body: '' }); } catch {}
+    const wf = queue.shift();
+    try { await fetch(`${API}/${wf}`, { method: 'POST', body: '' }); } catch {}
     if (queue.length) await new Promise(r => setTimeout(r, 50));
   }
   busy = false;
 }
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === 'haptic') {
-    queue.push(message.waveform);
+chrome.runtime.onConnect.addListener((port) => {
+  port.onMessage.addListener(({ waveform }) => {
+    queue.push(waveform);
     drain();
-  }
+  });
 });
