@@ -1,6 +1,6 @@
 # MX Master 4 Haptic Extension
 
-Haptic feedback for your Logitech MX Master 4 — both in the browser and system-wide on macOS.
+Haptic feedback for your Logitech MX Master 4 — in the browser, system-wide on macOS, and in Claude Code CLI.
 
 ## Requirements
 
@@ -125,6 +125,55 @@ launchctl load -w ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
 # Remove completely
 launchctl unload ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
 rm ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
+```
+
+---
+
+## Part 3 — Claude Code CLI
+
+Adds haptics to [Claude Code](https://claude.ai/code) CLI events via hooks.
+
+### Events
+
+| Event | Waveform |
+|---|---|
+| Claude finished responding (`Stop`) | `jingle` |
+| Claude waiting for your action (`Notification`) | `knock` |
+
+### Installation
+
+Add the following hooks to `~/.claude/settings.json`:
+
+```json
+"hooks": {
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/jingle >/dev/null 2>&1 || true"
+        }
+      ]
+    }
+  ],
+  "Notification": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/knock >/dev/null 2>&1 || true"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Or use the included helper script directly:
+
+```bash
+# test manually
+bash claude-haptics/haptic.sh jingle
 ```
 
 ---
