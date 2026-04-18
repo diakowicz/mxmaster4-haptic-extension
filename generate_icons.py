@@ -61,61 +61,47 @@ def line_aa(img, x0, y0, x1, y1, w, r, g, b, a=255):
 
 def draw_icon(img, size):
     s = size / 128
-    pad = 8 * s
-    bg_r = 12 * s  # background rounded rect radius
 
-    # Dark background with rounded corners
-    rect_rounded(img, 0, 0, size, size, int(bg_r),
-                 20, 20, 40, 255)
+    # Dark background
+    rect_rounded(img, 0, 0, size, size, int(14 * s), 18, 18, 36, 255)
 
-    # Subtle gradient overlay (top lighter)
-    for y in range(size):
-        alpha = int(30 * (1 - y / size))
-        for x in range(size):
-            img[y][x] = blend(img[y][x], 100, 120, 180, alpha)
+    # Mouse body — centered, clean proportions
+    cx   = size * 0.5
+    bw   = size * 0.42        # body width
+    bt   = size * 0.13        # body top
+    bb   = size * 0.87        # body bottom
+    bh   = bb - bt
+    brad = int(bw * 0.5)      # fully rounded top
 
-    # Mouse body
-    cx = size * 0.5
-    body_top = size * 0.15
-    body_bot = size * 0.82
-    body_w = size * 0.38
-    body_h = body_bot - body_top
-    body_rx = int(body_w * 0.52)
-
-    # Main mouse shape (teal)
     rect_rounded(img,
-                 int(cx - body_w * 0.5), int(body_top),
-                 int(cx + body_w * 0.5), int(body_bot),
-                 body_rx,
-                 0, 212, 170, 230)
+                 int(cx - bw * 0.5), int(bt),
+                 int(cx + bw * 0.5), int(bb),
+                 brad,
+                 0, 212, 170, 255)
 
-    # Divider line between left/right click
+    # Horizontal split (top buttons vs palm area)
+    split_y = bt + bh * 0.36
     line_aa(img,
-            cx, body_top + 2 * s,
-            cx, body_top + body_h * 0.38,
-            1.2 * s,
-            20, 20, 40, 180)
+            cx - bw * 0.5 + 1.5 * s, split_y,
+            cx + bw * 0.5 - 1.5 * s, split_y,
+            1.5 * s, 18, 18, 36, 200)
 
-    # Horizontal split line
+    # Vertical divider (left / right button)
     line_aa(img,
-            cx - body_w * 0.5 + 2 * s, body_top + body_h * 0.38,
-            cx + body_w * 0.5 - 2 * s, body_top + body_h * 0.38,
-            1.2 * s,
-            20, 20, 40, 160)
+            cx, bt + 1.5 * s,
+            cx, split_y,
+            1.5 * s, 18, 18, 36, 200)
 
-    # Scroll wheel (small rect)
-    ww = body_w * 0.18
-    wh = body_h * 0.16
+    # Scroll wheel — pill shape, centered, in top half
+    ww = bw * 0.16
+    wh = bh * 0.18
     wx = cx - ww * 0.5
-    wy = body_top + body_h * 0.14
-    rect_rounded(img, int(wx), int(wy), int(wx + ww), int(wy + wh), int(ww * 0.45),
-                 20, 20, 40, 200)
-
-    # Haptic glow dot (side button area)
-    circle_aa(img, int(cx - body_w * 0.52), int(body_top + body_h * 0.55),
-              3.5 * s, 0, 255, 200, 220)
-    circle_aa(img, int(cx - body_w * 0.52), int(body_top + body_h * 0.55),
-              6 * s, 0, 212, 170, 60)
+    wy = bt + bh * 0.10
+    rect_rounded(img,
+                 int(wx), int(wy),
+                 int(wx + ww), int(wy + wh),
+                 int(ww * 0.5),
+                 18, 18, 36, 220)
 
 os.makedirs('icons', exist_ok=True)
 for size in [16, 32, 48, 128]:
