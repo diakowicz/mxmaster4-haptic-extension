@@ -1,5 +1,5 @@
 const HOVER_THROTTLE_MS = 120;
-const SCROLL_EDGE_PX = 8;
+const SCROLL_EDGE_PX = 40;
 const SCROLL_COOLDOWN_MS = 600;
 
 const SLIDER_STEP_PCT  = 5;    // fire haptic every 5% of slider range
@@ -99,26 +99,19 @@ function onAnimEnd(e) {
 document.addEventListener('animationend',  onAnimEnd, true);
 document.addEventListener('transitionend', onAnimEnd, true);
 
-// Scroll to edge — capture on document catches custom scroll containers (SPAs etc.)
-let scrollTimer;
+// Scroll to edge — no debounce (smooth-scroll fires continuously, debounce never fires)
 document.addEventListener('scroll', (e) => {
   if (window.self !== window.top) return;
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(() => {
-    const now = Date.now();
-    if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
-    const el = (e.target === document || e.target === document.documentElement)
-      ? document.documentElement
-      : e.target;
-    const atTop = el.scrollTop <= SCROLL_EDGE_PX;
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_EDGE_PX;
-    if (!atTop && !atBottom) return;
-    // Read fresh from storage so popup changes take effect immediately
-    chrome.storage.sync.get(DEFAULTS, (s) => {
-      if (!s.enabled || !s.scrollEdge.enabled) return;
-      if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
-      lastScrollEdge = now;
-      trigger(s.scrollEdge.waveform);
-    });
-  }, 60);
+  const now = Date.now();
+  if (now - lastScrollEdge < SCROLL_COOLDOWN_MS) return;
+  const el = (e.target === document || e.target === document.documentElement)
+    ? document.documentElement : e.target;
+  const atTop = el.scrollTop <= SCROLL_EDGE_PX;
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_EDGE_PX;
+  if (!atTop && !atBottom) return;
+  lastScrollEdge = now;
+  chrome.storage.sync.get(DEFAULTS, (s) => {
+    if (!s.enabled || !s.scrollEdge.enabled) return;
+    trigger(s.scrollEdge.waveform);
+  });
 }, { passive: true, capture: true });
