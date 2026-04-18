@@ -2,6 +2,9 @@ const HOVER_THROTTLE_MS = 120;
 const SCROLL_EDGE_PX = 8;
 const SCROLL_COOLDOWN_MS = 600;
 
+const SLIDER_STEP_PCT  = 5;    // fire haptic every 5% of slider range
+const ANIM_THROTTLE_MS = 200;  // min ms between animation haptics per element
+
 const DEFAULTS = {
   enabled: true,
   hoverLink:   { enabled: true,  waveform: 'damp_collision' },
@@ -11,6 +14,8 @@ const DEFAULTS = {
   submit:      { enabled: true,  waveform: 'completed' },
   formError:   { enabled: true,  waveform: 'angry_alert' },
   scrollEdge:  { enabled: true,  waveform: 'sharp_collision' },
+  slider:      { enabled: true,  waveform: 'damp_state_change' },
+  animation:   { enabled: true,  waveform: 'subtle_collision' },
 };
 
 let settings = JSON.parse(JSON.stringify(DEFAULTS));
@@ -64,6 +69,34 @@ document.addEventListener('invalid', () => {
   if (!settings.formError.enabled) return;
   trigger(settings.formError.waveform);
 }, true);
+
+// Slider — fire every SLIDER_STEP_PCT% of range
+const sliderLastPct = new WeakMap();
+document.addEventListener('input', (e) => {
+  if (!settings.slider?.enabled) return;
+  const el = e.target;
+  if (el.type !== 'range') return;
+  const min = parseFloat(el.min) || 0;
+  const max = parseFloat(el.max) || 100;
+  const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+  const prev = sliderLastPct.get(el) ?? -999;
+  if (Math.abs(pct - prev) >= SLIDER_STEP_PCT) {
+    sliderLastPct.set(el, pct);
+    trigger(settings.slider.waveform);
+  }
+}, true);
+
+// CSS animation & transition end
+const animLastFired = new WeakMap();
+function onAnimEnd(e) {
+  if (!settings.animation?.enabled) return;
+  const now = Date.now();
+  if (now - (animLastFired.get(e.target) ?? 0) < ANIM_THROTTLE_MS) return;
+  animLastFired.set(e.target, now);
+  trigger(settings.animation.waveform);
+}
+document.addEventListener('animationend',  onAnimEnd, true);
+document.addEventListener('transitionend', onAnimEnd, true);
 
 // Scroll to edge
 let scrollTimer;

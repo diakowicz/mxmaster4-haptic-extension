@@ -4,7 +4,7 @@ const WAVEFORMS = [
   'firework', 'wave', 'square', 'knock', 'ringing', 'jingle',
 ];
 
-const EVENTS = ['hoverLink', 'hoverButton', 'hoverInput', 'focus', 'submit', 'formError', 'scrollEdge'];
+const EVENTS = ['hoverLink', 'hoverButton', 'hoverInput', 'focus', 'submit', 'formError', 'slider', 'animation', 'scrollEdge'];
 
 const DEFAULTS = {
   enabled: true,
@@ -15,6 +15,8 @@ const DEFAULTS = {
   submit:      { enabled: true,  waveform: 'completed' },
   formError:   { enabled: true,  waveform: 'angry_alert' },
   scrollEdge:  { enabled: true,  waveform: 'sharp_collision' },
+  slider:      { enabled: true,  waveform: 'damp_state_change' },
+  animation:   { enabled: true,  waveform: 'subtle_collision' },
 };
 
 // Populate waveform dropdowns
