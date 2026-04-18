@@ -22,9 +22,25 @@ let settings = JSON.parse(JSON.stringify(DEFAULTS));
 let lastHover = 0;
 let lastScrollEdge = 0;
 
+const API = 'https://local.jmw.nz:41443/haptic';
+const _queue = [];
+let _busy = false;
+
+async function _drain() {
+  if (_busy) return;
+  _busy = true;
+  while (_queue.length) {
+    const wf = _queue.shift();
+    try { await fetch(`${API}/${wf}`, { method: 'POST', body: '' }); } catch {}
+    if (_queue.length) await new Promise(r => setTimeout(r, 50));
+  }
+  _busy = false;
+}
+
 function trigger(waveform) {
   if (!settings.enabled) return;
-  chrome.runtime.sendMessage({ type: 'haptic', waveform });
+  _queue.push(waveform);
+  _drain();
 }
 
 chrome.storage.local.get(DEFAULTS, (data) => { settings = data; });
