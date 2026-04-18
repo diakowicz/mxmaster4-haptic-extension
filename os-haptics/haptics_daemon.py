@@ -98,7 +98,6 @@ def main():
     NSApplication.sharedApplication().setActivationPolicy_(2)
     last_window = start_monitors()
 
-    screen_h   = NSScreen.mainScreen().frame().size.height
     last_check = [0.0]
 
     # Long press detection
@@ -135,8 +134,8 @@ def main():
             now = time.time()
             if now - last_check[0] >= WINDOW_HOVER_THROTTLE:
                 last_check[0] = now
-                pos = NSEvent.mouseLocation()
-                cx, cy = pos.x, screen_h - pos.y
+                loc = Quartz.CGEventGetLocation(Quartz.CGEventCreate(None))
+                cx, cy = loc.x, loc.y
                 wid = get_window_id_under_cursor(cx, cy)
                 if wid and wid != last_window[0]:
                     last_window[0] = wid
