@@ -22,25 +22,22 @@ let settings = JSON.parse(JSON.stringify(DEFAULTS));
 let lastHover = 0;
 let lastScrollEdge = 0;
 
-const API = 'https://local.jmw.nz:41443/haptic';
-const _queue = [];
-let _busy = false;
+let _port = null;
 
-async function _drain() {
-  if (_busy) return;
-  _busy = true;
-  while (_queue.length) {
-    const wf = _queue.shift();
-    try { await fetch(`${API}/${wf}`, { method: 'POST', body: '' }); } catch {}
-    if (_queue.length) await new Promise(r => setTimeout(r, 50));
+function _getPort() {
+  if (!_port) {
+    try {
+      _port = chrome.runtime.connect({ name: 'haptics' });
+      _port.onDisconnect.addListener(() => { _port = null; });
+    } catch {}
   }
-  _busy = false;
+  return _port;
 }
 
 function trigger(waveform) {
   if (!settings.enabled) return;
-  _queue.push(waveform);
-  _drain();
+  const p = _getPort();
+  if (p) try { p.postMessage({ waveform }); } catch { _port = null; }
 }
 
 chrome.storage.local.get(DEFAULTS, (data) => { settings = data; });
