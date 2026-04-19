@@ -4,7 +4,7 @@ const WAVEFORMS = [
   'firework', 'wave', 'square', 'knock', 'ringing', 'jingle',
 ];
 
-const EVENTS = ['hoverLink', 'hoverButton', 'hoverInput', 'focus', 'submit', 'formError', 'scrollEdge'];
+const EVENTS = ['hoverLink', 'hoverButton', 'hoverInput', 'focus', 'submit', 'formError', 'slider', 'animation', 'scrollEdge'];
 
 const DEFAULTS = {
   enabled: true,
@@ -15,6 +15,8 @@ const DEFAULTS = {
   submit:      { enabled: true,  waveform: 'completed' },
   formError:   { enabled: true,  waveform: 'angry_alert' },
   scrollEdge:  { enabled: true,  waveform: 'sharp_collision' },
+  slider:      { enabled: true,  waveform: 'damp_state_change' },
+  animation:   { enabled: true,  waveform: 'subtle_collision' },
 };
 
 // Populate waveform dropdowns
@@ -30,7 +32,7 @@ EVENTS.forEach(ev => {
 });
 
 // Load settings
-chrome.storage.sync.get(DEFAULTS, (data) => {
+chrome.storage.local.get(DEFAULTS, (data) => {
   document.getElementById('masterToggle').checked = data.enabled;
   EVENTS.forEach(ev => {
     const enEl = document.getElementById(`en-${ev}`);
@@ -45,7 +47,7 @@ chrome.storage.sync.get(DEFAULTS, (data) => {
 
 // Master toggle
 document.getElementById('masterToggle').addEventListener('change', (e) => {
-  chrome.storage.sync.set({ enabled: e.target.checked });
+  chrome.storage.local.set({ enabled: e.target.checked });
 });
 
 // Per-event toggles and waveform selects
@@ -54,18 +56,17 @@ EVENTS.forEach(ev => {
   const wfEl = document.getElementById(`wf-${ev}`);
 
   enEl?.addEventListener('change', () => {
-    chrome.storage.sync.get(DEFAULTS, (data) => {
-      data[ev].enabled = enEl.checked;
+    chrome.storage.local.get(DEFAULTS, (data) => {
+      const updated = { ...data[ev], enabled: enEl.checked };
       if (wfEl) wfEl.disabled = !enEl.checked;
-      chrome.storage.sync.set({ [ev]: data[ev] });
+      chrome.storage.local.set({ [ev]: updated });
     });
   });
 
   wfEl?.addEventListener('change', () => {
-    chrome.storage.sync.get(DEFAULTS, (data) => {
-      data[ev].waveform = wfEl.value;
-      chrome.storage.sync.set({ [ev]: data[ev] });
-      // Preview haptic on change
+    chrome.storage.local.get(DEFAULTS, (data) => {
+      const updated = { ...data[ev], waveform: wfEl.value };
+      chrome.storage.local.set({ [ev]: updated });
       fetch(`https://local.jmw.nz:41443/haptic/${wfEl.value}`, { method: 'POST', body: '' }).catch(() => {});
     });
   });

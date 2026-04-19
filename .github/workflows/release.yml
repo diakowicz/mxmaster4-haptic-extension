@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build extension ZIP
+        run: |
+          zip -r mxmaster4-haptics-extension-${{ github.ref_name }}.zip \
+            manifest.json background.js content.js popup.html popup.js icons/
+
+      - name: Build macOS daemon ZIP
+        run: |
+          zip -r mxmaster4-haptics-macos-${{ github.ref_name }}.zip os-haptics/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mxmaster4-haptics-extension-${{ github.ref_name }}.zip
+            mxmaster4-haptics-macos-${{ github.ref_name }}.zip
+          generate_release_notes: true

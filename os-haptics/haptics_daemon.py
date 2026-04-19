@@ -1,34 +1,39 @@
-# Windows system-level haptic daemon
-# Listens to global mouse events via ctypes WH_MOUSE_LL hook
-# Requirements: pip install requests  (ctypes is built-in)
-#
-# Run: python os-haptics\haptics_daemon.py
+"""
+MX Master 4 haptic daemon — macOS
+Requires: pip install pyobjc-framework-Quartz requests --break-system-packages
+Run via launchd (see install.sh) or: python3 haptics_daemon.py
+"""
 
 import sys
-import ctypes
-import ctypes.wintypes
-import threading
 import time
+import threading
 import requests
 
-if sys.platform != "win32":
-    print("This script is for Windows only.")
+try:
+    from AppKit import (
+        NSApplication, NSEvent, NSWorkspace, NSScreen,
+        NSLeftMouseDownMask, NSRightMouseDownMask, NSMouseMovedMask,
+    )
+    import Quartz
+except ImportError:
+    print("Install dependencies: pip install pyobjc-framework-Quartz requests --break-system-packages")
     sys.exit(1)
 
 API = "https://local.jmw.nz:41443/haptic"
-SCROLL_EDGE_COOLDOWN = 0.6
 
-user32   = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
+BROWSER_BUNDLE_IDS = {
+    "com.google.Chrome",
+    "com.google.Chrome.beta",
+    "com.google.Chrome.canary",
+    "org.mozilla.firefox",
+    "com.apple.Safari",
+    "com.microsoft.edgemac",
+    "com.brave.Browser",
+    "com.operasoftware.Opera",
+    "com.vivaldi.Vivaldi",
+}
 
-WH_MOUSE_LL   = 14
-WM_LBUTTONDOWN = 0x0201
-WM_RBUTTONDOWN = 0x0204
-WM_MOUSEWHEEL  = 0x020A
-
-WHEEL_DELTA = 120
-
-last_scroll_edge = 0
+WINDOW_HOVER_THROTTLE = 0.033  # ~30 Hz — CGWindowList is expensive, don't go faster
 
 
 def trigger(waveform):
@@ -37,68 +42,108 @@ def trigger(waveform):
     except Exception:
         pass
 
-
-def trigger_async(waveform):
+def fire(waveform):
     threading.Thread(target=trigger, args=(waveform,), daemon=True).start()
 
-
-class MSLLHOOKSTRUCT(ctypes.Structure):
-    _fields_ = [
-        ("pt",      ctypes.wintypes.POINT),
-        ("mouseData", ctypes.wintypes.DWORD),
-        ("flags",   ctypes.wintypes.DWORD),
-        ("time",    ctypes.wintypes.DWORD),
-        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
-    ]
+def in_browser():
+    app = NSWorkspace.sharedWorkspace().frontmostApplication()
+    return app and app.bundleIdentifier() in BROWSER_BUNDLE_IDS
 
 
-HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_int, ctypes.wintypes.WPARAM, ctypes.wintypes.LPARAM)
+def get_window_id_under_cursor(cx, cy):
+    """Return the kCGWindowNumber of the topmost window under (cx, cy)."""
+    windows = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+        Quartz.kCGNullWindowID,
+    )
+    if not windows:
+        return None
+    for w in windows:
+        b = w.get("kCGWindowBounds", {})
+        x, y = b.get("X", 0), b.get("Y", 0)
+        width, height = b.get("Width", 0), b.get("Height", 0)
+        if x <= cx <= x + width and y <= cy <= y + height:
+            layer = w.get("kCGWindowLayer", 999)
+            if layer <= 0:   # skip menu bar, overlays
+                return w.get("kCGWindowNumber")
+    return None
 
 
-def hook_callback(nCode, wParam, lParam):
-    global last_scroll_edge
+def start_monitors():
+    last_window   = [None]
+    last_checked  = [0.0]
 
-    if nCode >= 0:
-        if wParam == WM_LBUTTONDOWN:
-            trigger_async("subtle_collision")
+    def on_mouse_click(event):
+        if in_browser():
+            return
+        t = event.type()
+        if t == 1:   fire("subtle_collision")
+        elif t == 3: fire("knock")
 
-        elif wParam == WM_RBUTTONDOWN:
-            trigger_async("knock")
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+        NSLeftMouseDownMask | NSRightMouseDownMask, on_mouse_click)
 
-        elif wParam == WM_MOUSEWHEEL:
-            ms = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT)).contents
-            delta = ctypes.c_short(ms.mouseData >> 16).value
-            now = time.time()
-            if delta == 0 and now - last_scroll_edge > SCROLL_EDGE_COOLDOWN:
-                last_scroll_edge = now
-                trigger_async("sharp_collision")
-
-    return user32.CallNextHookEx(None, nCode, wParam, lParam)
+    return last_window  # returned so main loop can poll
 
 
 def main():
-    callback = HOOKPROC(hook_callback)
-    hook = user32.SetWindowsHookExA(WH_MOUSE_LL, callback, kernel32.GetModuleHandleW(None), 0)
+    print("MX Master 4 haptic daemon — macOS", flush=True)
+    print("  Left click      → subtle_collision  (skipped in browser)", flush=True)
+    print("  Right click     → knock             (skipped in browser)", flush=True)
+    print("  Window hover    → damp_collision    (skipped in browser)", flush=True)
+    print("  Long press      → jingle            (skipped in browser)", flush=True)
+    print("  Requires: Accessibility + Screen Recording in Privacy settings", flush=True)
+    print("Running.\n", flush=True)
 
-    if not hook:
-        print("Failed to install mouse hook.")
-        sys.exit(1)
+    NSApplication.sharedApplication().setActivationPolicy_(2)
+    last_window = start_monitors()
 
-    print("MX Master 4 haptic daemon running (Windows)")
-    print("  Left click  → subtle_collision")
-    print("  Right click → knock")
-    print("  Scroll edge → sharp_collision")
-    print("Press Ctrl+C to stop.")
+    last_check = [0.0]
 
-    msg = ctypes.wintypes.MSG()
+    # Long press detection
+    press_start    = [0.0]
+    long_press_fired = [False]
+    LONG_PRESS_SEC = 0.5
+
+    def on_down(event):
+        if event.type() == 1:
+            press_start[0] = time.time()
+            long_press_fired[0] = False
+
+    def on_up(event):
+        if event.type() == 2 and not long_press_fired[0]:
+            pass  # normal click already handled
+
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(1 << 1, on_down)   # NSLeftMouseDown
+    NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(1 << 2, on_up)     # NSLeftMouseUp
+
+    from AppKit import NSRunLoop, NSDate
     try:
-        while user32.GetMessageA(ctypes.byref(msg), None, 0, 0) != 0:
-            user32.TranslateMessage(ctypes.byref(msg))
-            user32.DispatchMessageA(ctypes.byref(msg))
+        while True:
+            NSRunLoop.currentRunLoop().runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.016))
+
+            # Long press check
+            if press_start[0] and not long_press_fired[0]:
+                if time.time() - press_start[0] >= LONG_PRESS_SEC:
+                    long_press_fired[0] = True
+                    press_start[0] = 0.0
+                    if not in_browser():
+                        fire("jingle")
+
+            # Window hover poll
+            now = time.time()
+            if now - last_check[0] >= WINDOW_HOVER_THROTTLE:
+                last_check[0] = now
+                loc = Quartz.CGEventGetLocation(Quartz.CGEventCreate(None))
+                cx, cy = loc.x, loc.y
+                wid = get_window_id_under_cursor(cx, cy)
+                if wid and wid != last_window[0]:
+                    last_window[0] = wid
+                    if not in_browser():
+                        fire("damp_collision")
+
     except KeyboardInterrupt:
-        pass
-    finally:
-        user32.UnhookWindowsHookEx(hook)
+        print("\nStopped.")
 
 
 if __name__ == "__main__":
