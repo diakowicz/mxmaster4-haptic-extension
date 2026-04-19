@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs
+*.log
+
+# Node (jeśli kiedykolwiek)
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
