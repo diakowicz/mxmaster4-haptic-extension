@@ -115,7 +115,7 @@ def start_monitors():
         if now - last_scroll_h[0] < SCROLL_H_THROTTLE:
             return event
         last_scroll_h[0] = now
-        fire("sharp_collision")
+        fire("subtle_collision")
         return event
 
     tap = Quartz.CGEventTapCreate(
