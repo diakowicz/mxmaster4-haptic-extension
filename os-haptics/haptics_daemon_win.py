@@ -25,6 +25,14 @@ BROWSER_PROCS = {
 HOVER_THROTTLE = 0.033   # ~30 Hz, WindowFromPoint is cheap but WM_MOUSEMOVE fires often
 LONG_PRESS_SEC = 0.5
 
+# Horizontal scroll (MX Master 4 thumb wheel) -> Apple Watch crown-style ticks.
+# One WHEEL_DELTA (120) = one notch in ratchet mode. In free-spin mode we get
+# many smaller events, so we accumulate abs(delta) and fire one tick per
+# HSCROLL_TICK units, rate-capped by HSCROLL_MIN_SEC.
+WHEEL_DELTA       = 120
+HSCROLL_TICK      = 120
+HSCROLL_MIN_SEC   = 0.05
+
 # --- Win32 bindings ---
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -34,6 +42,7 @@ WM_LBUTTONDOWN = 0x0201
 WM_LBUTTONUP   = 0x0202
 WM_RBUTTONDOWN = 0x0204
 WM_MOUSEMOVE   = 0x0200
+WM_MOUSEHWHEEL = 0x020E
 GA_ROOT = 2
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
@@ -133,9 +142,19 @@ state = {
     "last_hover_check": 0.0,
     "press_start": 0.0,
     "long_press_fired": False,
+    "hscroll_acc": 0,
+    "last_hscroll_tick": 0.0,
 }
 
-def on_mouse_event(msg):
+def _hwheel_delta(lParam):
+    """Extract signed 16-bit wheel delta from MSLLHOOKSTRUCT.mouseData high word."""
+    info = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT))[0]
+    raw = (info.mouseData >> 16) & 0xFFFF
+    if raw & 0x8000:
+        raw -= 0x10000
+    return raw
+
+def on_mouse_event(msg, lParam):
     if msg == WM_LBUTTONDOWN:
         state["press_start"] = time.time()
         state["long_press_fired"] = False
@@ -156,11 +175,24 @@ def on_mouse_event(msg):
             state["last_window"] = hwnd
             if not is_browser_hwnd(hwnd):
                 fire("damp_collision")
+    elif msg == WM_MOUSEHWHEEL:
+        # System-wide: fire in every app (browser included), since no other
+        # layer in this project emits horizontal-scroll haptics.
+        delta = _hwheel_delta(lParam)
+        if not delta:
+            return
+        state["hscroll_acc"] += abs(delta)
+        now = time.time()
+        if (state["hscroll_acc"] >= HSCROLL_TICK
+                and now - state["last_hscroll_tick"] >= HSCROLL_MIN_SEC):
+            state["hscroll_acc"] = 0
+            state["last_hscroll_tick"] = now
+            fire("sharp_state_change")
 
 def _hook_proc(nCode, wParam, lParam):
     if nCode == 0:
         try:
-            on_mouse_event(wParam)
+            on_mouse_event(wParam, lParam)
         except Exception as e:
             print(f"hook error: {e}", flush=True)
     return user32.CallNextHookEx(None, nCode, wParam, lParam)
@@ -187,10 +219,11 @@ def main():
         pass
 
     print("MX Master 4 haptic daemon - Windows", flush=True)
-    print("  Left click      -> subtle_collision  (skipped in browser)", flush=True)
-    print("  Right click     -> knock             (skipped in browser)", flush=True)
-    print("  Window hover    -> damp_collision    (skipped in browser)", flush=True)
-    print("  Long press      -> jingle            (skipped in browser)", flush=True)
+    print("  Left click      -> subtle_collision    (skipped in browser)", flush=True)
+    print("  Right click     -> knock               (skipped in browser)", flush=True)
+    print("  Window hover    -> damp_collision      (skipped in browser)", flush=True)
+    print("  Long press      -> jingle              (skipped in browser)", flush=True)
+    print("  Horizontal scr. -> sharp_state_change  (crown-style, system-wide)", flush=True)
     print("Running.\n", flush=True)
 
     threading.Thread(target=long_press_watcher, daemon=True).start()

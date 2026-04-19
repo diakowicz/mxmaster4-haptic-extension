@@ -135,14 +135,15 @@ Same idea as the macOS daemon — adds click/hover haptics for **all apps** outs
 
 ### Events
 
-| Action | Waveform |
-|---|---|
-| Left click | `subtle_collision` |
-| Right click | `knock` |
-| Window hover (cursor enters a new top-level window) | `damp_collision` |
-| Long press (≥ 0.5s) | `jingle` |
+| Action | Waveform | Scope |
+|---|---|---|
+| Left click | `subtle_collision` | Skipped in browser |
+| Right click | `knock` | Skipped in browser |
+| Window hover (cursor enters a new top-level window) | `damp_collision` | Skipped in browser |
+| Long press (≥ 0.5s) | `jingle` | Skipped in browser |
+| Horizontal scroll (thumb wheel) | `sharp_state_change` | System-wide (crown-style ticks, one per `WHEEL_DELTA` = 120 units of `deltaX`) |
 
-Browser windows (Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, Zen, Chromium, Thorium) are excluded to avoid doubling up with the browser extension.
+Click/hover events in browser windows (Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, Zen, Chromium, Thorium) are excluded to avoid doubling up with the browser extension. Horizontal scroll is system-wide — the browser extension doesn't emit haptics for it, so there's no overlap.
 
 ### Installation
 
