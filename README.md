@@ -230,6 +230,61 @@ bash claude-haptics/haptic.sh jingle
 
 ---
 
+## Part 4 — Gemini CLI
+
+Adds haptics to [Gemini CLI](https://github.com/google-gemini/gemini-cli) events via hooks.
+
+### Events
+
+| Event | Waveform |
+|---|---|
+| Gemini finished responding (`AfterAgent`) | `jingle` |
+| Notification event (`Notification`) | `knock` |
+
+### Installation
+
+Add the following hooks to `~/.gemini/settings.json`:
+
+```json
+"hooks": {
+  "AfterAgent": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "name": "haptic-done",
+          "type": "command",
+          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/jingle >/dev/null 2>&1 || true"
+        }
+      ]
+    }
+  ],
+  "Notification": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "name": "haptic-notify",
+          "type": "command",
+          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/knock >/dev/null 2>&1 || true"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Or test the helper script directly:
+
+```bash
+# test manually
+bash gemini-haptics/haptic.sh jingle
+```
+
+> Hooks require Gemini CLI v0.26.0 or newer.
+
+---
+
 ## Waveforms
 
 All 15 available waveforms on the MX Master 4:
