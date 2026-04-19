@@ -34,7 +34,7 @@ BROWSER_BUNDLE_IDS = {
 }
 
 WINDOW_HOVER_THROTTLE = 0.033  # ~30 Hz — CGWindowList is expensive, don't go faster
-SCROLL_H_THROTTLE    = 0.01   # 10 ms — tight crown feel, one haptic per detent
+SCROLL_H_THROTTLE    = 0.02   # 20 ms
 
 
 def trigger(waveform):
@@ -115,7 +115,7 @@ def start_monitors():
         if now - last_scroll_h[0] < SCROLL_H_THROTTLE:
             return event
         last_scroll_h[0] = now
-        fire("damp_state_change")
+        fire("sharp_collision")
         return event
 
     tap = Quartz.CGEventTapCreate(

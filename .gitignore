@@ -1,5 +1,27 @@
-.claude/
-.DS_Store
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Claude
+.claude/
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
