@@ -34,6 +34,7 @@ BROWSER_BUNDLE_IDS = {
 }
 
 WINDOW_HOVER_THROTTLE = 0.033  # ~30 Hz — CGWindowList is expensive, don't go faster
+SCROLL_H_THROTTLE    = 0.01   # 10 ms — tight crown feel, one haptic per detent
 
 
 def trigger(waveform):
@@ -69,9 +70,26 @@ def get_window_id_under_cursor(cx, cy):
     return None
 
 
+def clipboard_screenshot_watcher():
+    """Fire haptic when a new image (screenshot) lands in the clipboard."""
+    from AppKit import NSPasteboard
+    IMAGE_TYPES = {'public.png', 'public.tiff', 'com.apple.pict'}
+    pb = NSPasteboard.generalPasteboard()
+    last_count = pb.changeCount()
+    while True:
+        time.sleep(0.25)
+        count = pb.changeCount()
+        if count == last_count:
+            continue
+        last_count = count
+        types = pb.types()
+        if types and IMAGE_TYPES.intersection(types):
+            fire("completed")
+
+
 def start_monitors():
-    last_window   = [None]
-    last_checked  = [0.0]
+    last_window      = [None]
+    last_scroll_h    = [0.0]
 
     def on_mouse_click(event):
         if in_browser():
@@ -83,6 +101,43 @@ def start_monitors():
     NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
         NSLeftMouseDownMask | NSRightMouseDownMask, on_mouse_click)
 
+    last_gesture_event = [0.0]
+
+    def scroll_tap_callback(proxy, event_type, event, refcon):
+        if event_type != 29:  # NSEventTypeGesture — Logi Options+ zoom mapping
+            return event
+        now = time.time()
+        gap = now - last_gesture_event[0]
+        last_gesture_event[0] = now
+        # isolated end-of-gesture marker arrives after >150ms silence — skip it
+        if gap > 0.15:
+            return event
+        if now - last_scroll_h[0] < SCROLL_H_THROTTLE:
+            return event
+        last_scroll_h[0] = now
+        fire("damp_state_change")
+        return event
+
+    tap = Quartz.CGEventTapCreate(
+        Quartz.kCGHIDEventTap,
+        Quartz.kCGHeadInsertEventTap,
+        Quartz.kCGEventTapOptionListenOnly,
+        Quartz.CGEventMaskBit(29),  # NSEventTypeGesture
+        scroll_tap_callback,
+        None,
+    )
+    if tap:
+        from CoreFoundation import (
+            CFMachPortCreateRunLoopSource, CFRunLoopAddSource,
+            CFRunLoopGetCurrent, kCFRunLoopDefaultMode,
+        )
+        src = CFMachPortCreateRunLoopSource(None, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), src, kCFRunLoopDefaultMode)
+        enabled = Quartz.CGEventTapIsEnabled(tap)
+        print(f"CGEventTap registered, enabled={enabled}", flush=True)
+    else:
+        print("WARNING: CGEventTap for scroll failed (check Accessibility permission)", flush=True)
+
     return last_window  # returned so main loop can poll
 
 
@@ -92,11 +147,14 @@ def main():
     print("  Right click     → knock             (skipped in browser)", flush=True)
     print("  Window hover    → damp_collision    (skipped in browser)", flush=True)
     print("  Long press      → jingle            (skipped in browser)", flush=True)
+    print("  Horizontal scroll → damp_state_change (crown feel, system-wide)", flush=True)
+    print("  Screenshot      → completed         (clipboard image detection)", flush=True)
     print("  Requires: Accessibility + Screen Recording in Privacy settings", flush=True)
     print("Running.\n", flush=True)
 
     NSApplication.sharedApplication().setActivationPolicy_(2)
     last_window = start_monitors()
+    threading.Thread(target=clipboard_screenshot_watcher, daemon=True).start()
 
     last_check = [0.0]
 
