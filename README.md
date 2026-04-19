@@ -129,6 +129,58 @@ rm ~/Library/LaunchAgents/com.mxmaster4.haptics.plist
 
 ---
 
+## Part 2b — Windows System Daemon
+
+Same idea as the macOS daemon — adds click/hover haptics for **all apps** outside the browser, via a global low-level mouse hook.
+
+### Events
+
+| Action | Waveform |
+|---|---|
+| Left click | `subtle_collision` |
+| Right click | `knock` |
+| Window hover (cursor enters a new top-level window) | `damp_collision` |
+| Long press (≥ 0.5s) | `jingle` |
+
+Browser windows (Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, Zen, Chromium, Thorium) are excluded to avoid doubling up with the browser extension.
+
+### Installation
+
+**1. Install Python 3** (from [python.org](https://www.python.org/) or the Microsoft Store) and make sure `pythonw.exe` is on `PATH`.
+
+**2. Run the install script** (PowerShell, no admin required):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File os-haptics\install.ps1
+```
+
+This installs the `requests` dependency if missing, registers a scheduled task `MXMaster4Haptics` that runs the daemon silently at every logon via `pythonw.exe`, and starts it immediately.
+
+**3. Verify**
+
+Move the mouse over another window or click outside the browser — you should feel the haptic. For debugging, run the daemon in a console:
+
+```powershell
+python os-haptics\haptics_daemon_win.py
+```
+
+### Daemon management
+
+```powershell
+# Stop
+Stop-ScheduledTask -TaskName MXMaster4Haptics
+
+# Start
+Start-ScheduledTask -TaskName MXMaster4Haptics
+
+# Remove completely
+Unregister-ScheduledTask -TaskName MXMaster4Haptics -Confirm:$false
+```
+
+No special permissions are required — `SetWindowsHookEx(WH_MOUSE_LL)` works for the current user without admin rights.
+
+---
+
 ## Part 3 — Claude Code CLI
 
 Adds haptics to [Claude Code](https://claude.ai/code) CLI events via hooks.
@@ -206,10 +258,15 @@ All 15 available waveforms on the MX Master 4:
 - Increase `SCROLL_EDGE_PX` in `content.js` (default: `40`) to require being closer to the edge
 - Increase `SCROLL_COOLDOWN_MS` (default: `600`) to add more time between triggers
 
-**Daemon not responding**
+**Daemon not responding (macOS)**
 - Check logs: `tail -f /tmp/mxmaster4-haptics.log`
 - Make sure Accessibility and Screen Recording permissions are granted for `Python.app`
 - Restart: `launchctl unload` then `launchctl load -w` on the plist
+
+**Daemon not responding (Windows)**
+- Check the scheduled task: `Get-ScheduledTaskInfo -TaskName MXMaster4Haptics`
+- Run the daemon in a console to see errors: `python os-haptics\haptics_daemon_win.py`
+- If the hook stops firing after some time, Windows may have dropped it due to a slow callback — restart the task: `Stop-ScheduledTask -TaskName MXMaster4Haptics; Start-ScheduledTask -TaskName MXMaster4Haptics`
 
 **Haptics fire too often on hover in browser**
 - Increase `HOVER_THROTTLE_MS` in `content.js` (default: `120`)
