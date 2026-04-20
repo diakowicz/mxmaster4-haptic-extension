@@ -26,12 +26,12 @@ HOVER_THROTTLE = 0.033   # ~30 Hz, WindowFromPoint is cheap but WM_MOUSEMOVE fir
 LONG_PRESS_SEC = 0.5
 
 # Horizontal scroll (MX Master 4 thumb wheel) -> Apple Watch crown-style ticks.
-# One WHEEL_DELTA (120) = one notch in ratchet mode. In free-spin mode we get
-# many smaller events, so we accumulate abs(delta) and fire one tick per
-# HSCROLL_TICK units, rate-capped by HSCROLL_MIN_SEC.
+# macOS gets ~1 gesture event per detent; Windows WM_MOUSEHWHEEL fires much
+# faster in free-spin, so accumulate abs(delta) and fire one tick per notch
+# (WHEEL_DELTA). 15 ms throttle matches the macOS daemon.
 WHEEL_DELTA       = 120
 HSCROLL_TICK      = 120
-HSCROLL_MIN_SEC   = 0.05
+HSCROLL_MIN_SEC   = 0.015
 
 # --- Win32 bindings ---
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -187,7 +187,7 @@ def on_mouse_event(msg, lParam):
                 and now - state["last_hscroll_tick"] >= HSCROLL_MIN_SEC):
             state["hscroll_acc"] = 0
             state["last_hscroll_tick"] = now
-            fire("sharp_state_change")
+            fire("damp_state_change")
 
 def _hook_proc(nCode, wParam, lParam):
     if nCode == 0:
@@ -223,7 +223,7 @@ def main():
     print("  Right click     -> knock               (skipped in browser)", flush=True)
     print("  Window hover    -> damp_collision      (skipped in browser)", flush=True)
     print("  Long press      -> jingle              (skipped in browser)", flush=True)
-    print("  Horizontal scr. -> sharp_state_change  (crown-style, system-wide)", flush=True)
+    print("  Horizontal scr. -> damp_state_change   (crown-style, system-wide)", flush=True)
     print("Running.\n", flush=True)
 
     threading.Thread(target=long_press_watcher, daemon=True).start()
