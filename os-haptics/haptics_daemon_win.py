@@ -22,7 +22,6 @@ BROWSER_PROCS = {
     "chromium.exe", "thorium.exe", "arc.exe", "zen.exe",
 }
 
-HOVER_THROTTLE = 0.033   # ~30 Hz, WindowFromPoint is cheap but WM_MOUSEMOVE fires often
 LONG_PRESS_SEC = 0.5
 LONG_PRESS_DRAG_PX = 5   # movement > this while holding LMB cancels long press (it's a drag)
 
@@ -139,8 +138,6 @@ def is_browser_hwnd(hwnd):
 
 # --- State ---
 state = {
-    "last_window": None,
-    "last_hover_check": 0.0,
     "press_start": 0.0,
     "press_x": 0,
     "press_y": 0,
@@ -178,15 +175,6 @@ def on_mouse_event(msg, lParam):
             if (abs(info.pt.x - state["press_x"]) > LONG_PRESS_DRAG_PX
                     or abs(info.pt.y - state["press_y"]) > LONG_PRESS_DRAG_PX):
                 state["press_start"] = 0.0
-        now = time.time()
-        if now - state["last_hover_check"] < HOVER_THROTTLE:
-            return
-        state["last_hover_check"] = now
-        hwnd = top_window_under_cursor()
-        if hwnd and hwnd != state["last_window"]:
-            state["last_window"] = hwnd
-            if not is_browser_hwnd(hwnd):
-                fire("damp_collision")
     elif msg == WM_MOUSEHWHEEL:
         # System-wide: fire in every app (browser included), since no other
         # layer in this project emits horizontal-scroll haptics.
@@ -233,7 +221,6 @@ def main():
     print("MX Master 4 haptic daemon - Windows", flush=True)
     print("  Left click      -> subtle_collision    (skipped in browser)", flush=True)
     print("  Right click     -> knock               (skipped in browser)", flush=True)
-    print("  Window hover    -> damp_collision      (skipped in browser)", flush=True)
     print("  Long press      -> jingle              (skipped in browser)", flush=True)
     print("  Horizontal scr. -> damp_state_change   (crown-style, system-wide)", flush=True)
     print("Running.\n", flush=True)
