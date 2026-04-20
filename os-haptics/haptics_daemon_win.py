@@ -24,6 +24,7 @@ BROWSER_PROCS = {
 
 HOVER_THROTTLE = 0.033   # ~30 Hz, WindowFromPoint is cheap but WM_MOUSEMOVE fires often
 LONG_PRESS_SEC = 0.5
+LONG_PRESS_DRAG_PX = 5   # movement > this while holding LMB cancels long press (it's a drag)
 
 # Horizontal scroll (MX Master 4 thumb wheel) -> Apple Watch crown-style ticks.
 # macOS gets ~1 gesture event per detent; Windows WM_MOUSEHWHEEL fires much
@@ -141,6 +142,8 @@ state = {
     "last_window": None,
     "last_hover_check": 0.0,
     "press_start": 0.0,
+    "press_x": 0,
+    "press_y": 0,
     "long_press_fired": False,
     "hscroll_acc": 0,
     "last_hscroll_tick": 0.0,
@@ -156,7 +159,10 @@ def _hwheel_delta(lParam):
 
 def on_mouse_event(msg, lParam):
     if msg == WM_LBUTTONDOWN:
+        info = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT))[0]
         state["press_start"] = time.time()
+        state["press_x"] = info.pt.x
+        state["press_y"] = info.pt.y
         state["long_press_fired"] = False
         if not is_browser_hwnd(top_window_under_cursor()):
             fire("subtle_collision")
@@ -166,6 +172,12 @@ def on_mouse_event(msg, lParam):
         if not is_browser_hwnd(top_window_under_cursor()):
             fire("knock")
     elif msg == WM_MOUSEMOVE:
+        # Cancel long press if cursor drifts while LMB is held — it's a drag, not a hold
+        if state["press_start"]:
+            info = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT))[0]
+            if (abs(info.pt.x - state["press_x"]) > LONG_PRESS_DRAG_PX
+                    or abs(info.pt.y - state["press_y"]) > LONG_PRESS_DRAG_PX):
+                state["press_start"] = 0.0
         now = time.time()
         if now - state["last_hover_check"] < HOVER_THROTTLE:
             return
