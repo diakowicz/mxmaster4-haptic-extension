@@ -140,9 +140,8 @@ Same idea as the macOS daemon — adds click/hover haptics for **all apps** outs
 | Left click | `subtle_collision` | Skipped in browser |
 | Right click | `knock` | Skipped in browser |
 | Long press (≥ 0.5s) | `jingle` | Skipped in browser |
-| Horizontal scroll (thumb wheel) | `damp_state_change` | System-wide, one haptic per wheel event, 15 ms throttle (crown feel, matches macOS) |
 
-Click events in browser windows (Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, Zen, Chromium, Thorium) are excluded to avoid doubling up with the browser extension. Horizontal scroll is system-wide — the browser extension doesn't emit haptics for it, so there's no overlap.
+Click events in browser windows (Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, Zen, Chromium, Thorium) are excluded to avoid doubling up with the browser extension.
 
 ### Installation
 

@@ -25,14 +25,6 @@ BROWSER_PROCS = {
 LONG_PRESS_SEC = 0.5
 LONG_PRESS_DRAG_PX = 5   # movement > this while holding LMB cancels long press (it's a drag)
 
-# Horizontal scroll (MX Master 4 thumb wheel) -> Apple Watch crown-style ticks.
-# macOS gets ~1 gesture event per detent; Windows WM_MOUSEHWHEEL fires much
-# faster in free-spin, so accumulate abs(delta) and fire one tick per notch
-# (WHEEL_DELTA). 15 ms throttle matches the macOS daemon.
-WHEEL_DELTA       = 120
-HSCROLL_TICK      = 120
-HSCROLL_MIN_SEC   = 0.015
-
 # --- Win32 bindings ---
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -42,7 +34,6 @@ WM_LBUTTONDOWN = 0x0201
 WM_LBUTTONUP   = 0x0202
 WM_RBUTTONDOWN = 0x0204
 WM_MOUSEMOVE   = 0x0200
-WM_MOUSEHWHEEL = 0x020E
 GA_ROOT = 2
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
@@ -142,17 +133,7 @@ state = {
     "press_x": 0,
     "press_y": 0,
     "long_press_fired": False,
-    "hscroll_acc": 0,
-    "last_hscroll_tick": 0.0,
 }
-
-def _hwheel_delta(lParam):
-    """Extract signed 16-bit wheel delta from MSLLHOOKSTRUCT.mouseData high word."""
-    info = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT))[0]
-    raw = (info.mouseData >> 16) & 0xFFFF
-    if raw & 0x8000:
-        raw -= 0x10000
-    return raw
 
 def on_mouse_event(msg, lParam):
     if msg == WM_LBUTTONDOWN:
@@ -175,19 +156,6 @@ def on_mouse_event(msg, lParam):
             if (abs(info.pt.x - state["press_x"]) > LONG_PRESS_DRAG_PX
                     or abs(info.pt.y - state["press_y"]) > LONG_PRESS_DRAG_PX):
                 state["press_start"] = 0.0
-    elif msg == WM_MOUSEHWHEEL:
-        # System-wide: fire in every app (browser included), since no other
-        # layer in this project emits horizontal-scroll haptics.
-        delta = _hwheel_delta(lParam)
-        if not delta:
-            return
-        state["hscroll_acc"] += abs(delta)
-        now = time.time()
-        if (state["hscroll_acc"] >= HSCROLL_TICK
-                and now - state["last_hscroll_tick"] >= HSCROLL_MIN_SEC):
-            state["hscroll_acc"] = 0
-            state["last_hscroll_tick"] = now
-            fire("damp_state_change")
 
 def _hook_proc(nCode, wParam, lParam):
     if nCode == 0:
@@ -222,7 +190,6 @@ def main():
     print("  Left click      -> subtle_collision    (skipped in browser)", flush=True)
     print("  Right click     -> knock               (skipped in browser)", flush=True)
     print("  Long press      -> jingle              (skipped in browser)", flush=True)
-    print("  Horizontal scr. -> damp_state_change   (crown-style, system-wide)", flush=True)
     print("Running.\n", flush=True)
 
     threading.Thread(target=long_press_watcher, daemon=True).start()
