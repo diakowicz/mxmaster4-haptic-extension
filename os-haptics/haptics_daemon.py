@@ -19,7 +19,7 @@ except ImportError:
     print("Install dependencies: pip install pyobjc-framework-Quartz requests --break-system-packages")
     sys.exit(1)
 
-API = "https://local.jmw.nz:41443/haptic"
+API = "http://127.0.0.1:5002/haptic"
 
 BROWSER_BUNDLE_IDS = {
     "com.google.Chrome",

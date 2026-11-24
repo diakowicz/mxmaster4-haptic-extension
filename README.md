@@ -6,9 +6,9 @@ Haptic feedback for your Logitech MX Master 4 — in the browser, system-wide on
 
 - Logitech MX Master 4 with Bolt receiver
 - [Logi Options+](https://www.logitech.com/software/logi-options-plus.html)
-- [HapticWeb plugin](https://marketplace.logi.com/plugin/HapticWeb/en) installed in Logi Options+
+- [Masterowich](https://github.com/diakowicz/masterowich) plugin installed in Logi Options+
 
-The HapticWeb plugin exposes a local HTTPS server (`https://local.jmw.nz:41443`) that this project connects to for triggering waveforms.
+The Masterowich plugin exposes a local HTTP server (`http://127.0.0.1:5002`) that this project connects to for triggering waveforms. Browser requests are accepted only from extensions; scripts and daemons (no `Origin` header) are always allowed.
 
 ---
 
@@ -203,7 +203,7 @@ Add the following hooks to `~/.claude/settings.json`:
       "hooks": [
         {
           "type": "command",
-          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/jingle >/dev/null 2>&1 || true"
+          "command": "curl -s -X POST -d '' http://127.0.0.1:5002/haptic/jingle >/dev/null 2>&1 || true"
         }
       ]
     }
@@ -213,7 +213,7 @@ Add the following hooks to `~/.claude/settings.json`:
       "hooks": [
         {
           "type": "command",
-          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/knock >/dev/null 2>&1 || true"
+          "command": "curl -s -X POST -d '' http://127.0.0.1:5002/haptic/knock >/dev/null 2>&1 || true"
         }
       ]
     }
@@ -254,7 +254,7 @@ Add the following hooks to `~/.gemini/settings.json`:
         {
           "name": "haptic-done",
           "type": "command",
-          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/jingle >/dev/null 2>&1 || true"
+          "command": "curl -s -X POST -d '' http://127.0.0.1:5002/haptic/jingle >/dev/null 2>&1 || true"
         }
       ]
     }
@@ -266,7 +266,7 @@ Add the following hooks to `~/.gemini/settings.json`:
         {
           "name": "haptic-notify",
           "type": "command",
-          "command": "curl -s -X POST -d '' https://local.jmw.nz:41443/haptic/knock >/dev/null 2>&1 || true"
+          "command": "curl -s -X POST -d '' http://127.0.0.1:5002/haptic/knock >/dev/null 2>&1 || true"
         }
       ]
     }
@@ -302,8 +302,9 @@ All 15 available waveforms on the MX Master 4:
 
 **No haptics / red dot in popup**
 - Make sure Logi Options+ is running
-- Check HapticWeb plugin is active (green dot in Logi Options+)
-- Test directly: `curl -X POST -d '' https://local.jmw.nz:41443/haptic/sharp_collision`
+- Check the Masterowich plugin is loaded: `curl http://127.0.0.1:5002/` should return `{"status":"active",...}`
+- Test directly: `curl -d '' http://127.0.0.1:5002/haptic/sharp_collision`
+- Or open the test pad: <http://127.0.0.1:5002/config>
 
 **Waveform changes in popup don't take effect**
 - Close and reopen the popup after changing a setting

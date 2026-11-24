@@ -14,7 +14,7 @@ import ctypes
 from ctypes import wintypes
 import requests
 
-API = "https://local.jmw.nz:41443/haptic"
+API = "http://127.0.0.1:5002/haptic"
 
 BROWSER_PROCS = {
     "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
@@ -78,7 +78,7 @@ kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 # --- Haptic trigger ---
 def trigger(waveform):
     try:
-        requests.post(f"{API}/{waveform}", data="", timeout=1, verify=False)
+        requests.post(f"{API}/{waveform}", data="", timeout=1)
     except Exception:
         pass
 
@@ -179,13 +179,6 @@ def long_press_watcher():
                     fire("jingle")
 
 def main():
-    # Silence urllib3 warning about the HapticWeb self-signed cert
-    try:
-        import urllib3
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    except Exception:
-        pass
-
     print("MX Master 4 haptic daemon - Windows", flush=True)
     print("  Left click      -> subtle_collision  (skipped in browser)", flush=True)
     print("  Right click     -> knock             (skipped in browser)", flush=True)

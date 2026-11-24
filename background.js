@@ -1,4 +1,4 @@
-const API = 'https://local.jmw.nz:41443/haptic';
+const API = 'http://127.0.0.1:5002/haptic';
 const queue = [];
 let busy = false;
 

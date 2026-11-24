@@ -67,7 +67,7 @@ EVENTS.forEach(ev => {
     chrome.storage.local.get(DEFAULTS, (data) => {
       const updated = { ...data[ev], waveform: wfEl.value };
       chrome.storage.local.set({ [ev]: updated });
-      fetch(`https://local.jmw.nz:41443/haptic/${wfEl.value}`, { method: 'POST', body: '' }).catch(() => {});
+      fetch(`http://127.0.0.1:5002/haptic/${wfEl.value}`, { method: 'POST', body: '' }).catch(() => {});
     });
   });
 });
@@ -76,7 +76,7 @@ EVENTS.forEach(ev => {
 const dot = document.getElementById('dot');
 const statusText = document.getElementById('statusText');
 
-fetch('https://local.jmw.nz:41443/')
+fetch('http://127.0.0.1:5002/')
   .then(r => r.json())
   .then(data => {
     dot.classList.add('ok');
