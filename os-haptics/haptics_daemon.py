@@ -102,8 +102,16 @@ def start_monitors():
         NSLeftMouseDownMask | NSRightMouseDownMask, on_mouse_click)
 
     last_gesture_event = [0.0]
+    tap_ref = [None]
 
     def scroll_tap_callback(proxy, event_type, event, refcon):
+        # macOS disables a tap that is too slow or on user input; turn it back on,
+        # otherwise the zoom haptic goes silent while the daemon keeps running.
+        if event_type in (Quartz.kCGEventTapDisabledByTimeout, Quartz.kCGEventTapDisabledByUserInput):
+            if tap_ref[0] is not None:
+                Quartz.CGEventTapEnable(tap_ref[0], True)
+                print("CGEventTap re-enabled after being disabled by the system", flush=True)
+            return event
         if event_type != 29:  # NSEventTypeGesture — Logi Options+ zoom mapping
             return event
         now = time.time()
@@ -118,14 +126,17 @@ def start_monitors():
         fire("subtle_collision")
         return event
 
+    # Session-level tap: since the mid-2026 Options+ update, the thumb-wheel zoom gestures are
+    # injected at session level and no longer pass through kCGHIDEventTap.
     tap = Quartz.CGEventTapCreate(
-        Quartz.kCGHIDEventTap,
+        Quartz.kCGSessionEventTap,
         Quartz.kCGHeadInsertEventTap,
         Quartz.kCGEventTapOptionListenOnly,
         Quartz.CGEventMaskBit(29),  # NSEventTypeGesture
         scroll_tap_callback,
         None,
     )
+    tap_ref[0] = tap
     if tap:
         from CoreFoundation import (
             CFMachPortCreateRunLoopSource, CFRunLoopAddSource,
@@ -147,7 +158,7 @@ def main():
     print("  Right click     → knock             (skipped in browser)", flush=True)
     print("  Window hover    → damp_collision    (skipped in browser)", flush=True)
     print("  Long press      → jingle            (skipped in browser)", flush=True)
-    print("  Horizontal scroll → damp_state_change (crown feel, system-wide)", flush=True)
+    print("  Thumb-wheel zoom → subtle_collision  (crown feel, system-wide)", flush=True)
     print("  Screenshot      → completed         (clipboard image detection)", flush=True)
     print("  Requires: Accessibility + Screen Recording in Privacy settings", flush=True)
     print("Running.\n", flush=True)
